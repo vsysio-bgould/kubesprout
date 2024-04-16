@@ -48,7 +48,7 @@ The configuration for a certificate hierarchy is contained within the `ca` folde
 Cryptographic products contained within this directory are used for signing, encipherment and 
 authentication.
 
-![Hierarchy Diagram](.\ca\CA hierarchy.png)
+![Hierarchy Diagram](".\ca\CA hierarchy.png")
 
 A multilevel tiered hierarchy is established to more closely model what would likely exist in an 
 enterprise setting.
