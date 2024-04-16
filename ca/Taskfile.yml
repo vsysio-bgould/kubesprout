@@ -1,0 +1,84 @@
+version: '3'
+
+tasks:
+
+  # Checks and Balances
+  ck_config:
+    internal: true
+    silent: true
+    desc: "Verifies `config.conf` file exists before proceeding"
+    dir: ca/
+    preconditions:
+      - sh:  test -f config.conf
+        msg: "Before running this feature, you must rename and populate values in the `ca/config.conf.sample` file to `ca/config.conf`"
+  ck_commands:
+    internal: true
+    silent: true
+    desc: "Verifies dependent utilities, such as `openssl`, are available"
+    dir: ca/
+    preconditions:
+      - sh: command -v openssl
+        msg: Openssl utility needs to be installed
+  ck_clean:
+    internal: true
+    silent: true
+    desc: "Verifies if a certificate hierarchy is already generated"
+    dir: ca/
+    preconditions:
+      - sh: test -f ca/ca.crt
+        msg: "A certificate hierarchy has already been generated! Run ca:obliterate first to clean this workspace, then try again."
+
+  # Meat and Potatoes (yum!)
+  generate:
+    desc: Generate CA materiel
+    deps: [
+      ck_config,
+      ck_commands,
+      ck_clean
+    ]
+    silent: true
+    dir: ca/
+    dotenv: ['config.conf']
+    cmds:
+      - echo "---------- Sourcing values from config.conf ----------"
+      - echo ">>>>> Cluster name - $clusterName"
+      - echo ">>>>> Cluster version - $clusterVersion"
+      - echo ">>>>> External control domain - $externalControlDomain"
+      - echo ">>>>> Namespace - $namespace"
+      - echo ---------- Preparing ----------
+      - mkdir -p ca/$clusterName$clusterVersion
+      - mkdir -p ca/clusters_intca
+      - touch output.txt
+      - echo ---------- Generating Root CA private key ----------
+      - openssl genrsa -out ca/ca.key 4096
+      - echo ---------- Signing Root CA public key ----------
+      - openssl req -x509 -new -sha512 -key ca/ca.key -days 3650 -config ca.conf -out ca/ca.crt
+      - echo
+      - echo ">>>>> Root CA Private key - ca/ca/ca.key"
+      - echo ">>>>> Root CA Public key - ca/ca/ca.crt"
+      - echo
+      - echo ---------- Generating Clusters CA private key ----------
+      - openssl genrsa -out ca/clusters_intca/private.key 4096
+      - echo ---------- Generating CSR signing request for Intermediate CA ----------
+      - openssl req -new -sha256 -key ca/clusters_intca/private.key -config clusters_intca.conf -out ca/clusters_intca/private.csr
+      - echo ---------- Signing Intermediate CA CSR with Root CA ----------
+      - openssl x509 -req -in ca/clusters_intca/private.csr -CA ca/ca.crt -CAkey ca/ca.key -CAcreateserial -days 1825 -sha256 -out ca/clusters_intca/public.crt
+      - echo
+      - echo ">>>>> Intermediate CA Private key - ca/clusters_intca/private.key"
+      - echo ">>>>> Intermediate CA Certificate signing request  - ca/clusters_intca/private.csr"
+      - echo ">>>>> Intermediate CA Public key - ca/clusters_intca/public.crt"
+
+  obliterate:
+    silent: true
+    desc: Cleans up the CA workspace for generating a new hierarchy.
+    prompt: |
+      !! WARNING !!
+      THIS IS A DESTRUCTIVE OPERATION that will destroy the certificate hierarchy set into this workspace.
+      If you haven't backed up the contents of the ca/ folder, this will obliterate any chance of
+      generating new certificates.
+      Bad stuff will happen. ESPECIALLY IF YOU IGNORE THIS MSG.
+      !! WARNING !!
+    dir: ca/
+    cmds:
+      - rm -rf ca/
+

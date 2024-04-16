@@ -1,0 +1,17 @@
+# CA Configuration File
+
+# Namespace used to neatly separate crypto materials into namespaced directories
+namespace = clusters_intca/$clusterName$clusterVersion
+# Friendly name for your cluster
+clusterName = cluster
+# Version of this cluster (in case an earlier cluster haywire or something and you had to tear it down)
+clusterVersion = 1
+# On my network, I use "control domains" to group hosts together
+# HTTPS endpoints within a control domain need to be listed as the Subject or Alternative Names
+# in corresponding TLS certs, otherwise connections to the cluster will fail
+
+# This variable will be appended to all hostnames, so for example, on my network, a host
+# named `api-server` will become:
+# api-server.cluster.1.vmnet.arpa
+
+externalControlDomain = $clusterName.$clusterVersion.vmnet.arpa

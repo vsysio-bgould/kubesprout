@@ -1,0 +1,9 @@
+# IDE Stuff
+.idea
+
+# Do not version keys
+*.pem
+*.key
+
+# Do not version custom config files
+ca/config.conf
