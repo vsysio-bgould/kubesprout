@@ -25,7 +25,12 @@ tasks:
     desc: "Verifies if a certificate hierarchy is already generated"
     dir: ca/
     preconditions:
-      - sh: test -f ca/ca.crt
+      - sh:  |
+          if [ -f "ca/ca.crt" ]; then
+            exit 1
+          else
+            exit 0
+          fi
         msg: "A certificate hierarchy has already been generated! Run ca:obliterate first to clean this workspace, then try again."
 
   # Meat and Potatoes (yum!)
@@ -54,9 +59,6 @@ tasks:
       - echo ---------- Signing Root CA public key ----------
       - openssl req -x509 -new -sha512 -key ca/ca.key -days 3650 -config ca.conf -out ca/ca.crt
       - echo
-      - echo ">>>>> Root CA Private key - ca/ca/ca.key"
-      - echo ">>>>> Root CA Public key - ca/ca/ca.crt"
-      - echo
       - echo ---------- Generating Clusters CA private key ----------
       - openssl genrsa -out ca/clusters_intca/private.key 4096
       - echo ---------- Generating CSR signing request for Intermediate CA ----------
@@ -64,6 +66,8 @@ tasks:
       - echo ---------- Signing Intermediate CA CSR with Root CA ----------
       - openssl x509 -req -in ca/clusters_intca/private.csr -CA ca/ca.crt -CAkey ca/ca.key -CAcreateserial -days 1825 -sha256 -out ca/clusters_intca/public.crt
       - echo
+      - echo ">>>>> Root CA Private key - ca/ca/ca.key"
+      - echo ">>>>> Root CA Public key - ca/ca/ca.crt"
       - echo ">>>>> Intermediate CA Private key - ca/clusters_intca/private.key"
       - echo ">>>>> Intermediate CA Certificate signing request  - ca/clusters_intca/private.csr"
       - echo ">>>>> Intermediate CA Public key - ca/clusters_intca/public.crt"
