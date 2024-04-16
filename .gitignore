@@ -4,6 +4,7 @@
 # Do not version keys
 *.pem
 *.key
+ca/ca/*
 
 # Do not version custom config files
 ca/config.conf
