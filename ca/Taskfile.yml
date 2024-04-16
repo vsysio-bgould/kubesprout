@@ -32,10 +32,19 @@ tasks:
             exit 0
           fi
         msg: "A certificate hierarchy has already been generated! Run ca:obliterate first to clean this workspace, then try again."
+  ck_cagenerated:
+    internal: true
+    silent: true
+    desc: "Checks whether a root certificate hierarchy exists in this workspace."
+    dir: ca/
+    preconditions:
+      - sh: test -f ca/ca.crt
+        msg: "A root certificate hierarchy must already be generated. Run ca:generate first."
+
 
   # Meat and Potatoes (yum!)
   generate:
-    desc: Generate CA materiel
+    desc: Generate CA materiel (follow-up with ca:kubernetes if bootstrapping a new cluster)
     deps: [
       ck_config,
       ck_commands,
@@ -49,28 +58,37 @@ tasks:
       - echo ">>>>> Cluster name - $clusterName"
       - echo ">>>>> Cluster version - $clusterVersion"
       - echo ">>>>> External control domain - $externalControlDomain"
-      - echo ">>>>> Namespace - $namespace"
+
       - echo ---------- Preparing ----------
       - mkdir -p ca/$clusterName$clusterVersion
       - mkdir -p ca/clusters_intca
-      - touch output.txt
+
       - echo ---------- Generating Root CA private key ----------
       - openssl genrsa -out ca/ca.key 4096
+
       - echo ---------- Signing Root CA public key ----------
       - openssl req -x509 -new -sha512 -key ca/ca.key -days 3650 -config ca.conf -out ca/ca.crt
-      - echo
+
       - echo ---------- Generating Clusters Intermediate CA private key ----------
       - openssl genrsa -out ca/clusters_intca/private.key 4096
+
       - echo ---------- Generating CSR signing request for Intermediate CA ----------
       - openssl req -new -sha256 -key ca/clusters_intca/private.key -config clusters_intca.conf -out ca/clusters_intca/private.csr
+
       - echo ---------- Signing Intermediate CA CSR with Root CA ----------
       - openssl x509 -req -in ca/clusters_intca/private.csr -CA ca/ca.crt -CAkey ca/ca.key -CAcreateserial -days 1825 -sha256 -out ca/clusters_intca/public.crt
+
       - echo ---------- Generating CA private key for $clusterName$clusterVersion ----------
       - openssl genrsa -out ca/$clusterName$clusterVersion/private.key -out ca/$clusterName$clusterVersion/private.key 4096
+
       - echo ---------- Generating CSR signing request for $clusterName$clusterVersion ----------
       - openssl req -new -sha256 -key ca/$clusterName$clusterVersion/private.key -config clusters_intca.conf -out ca/$clusterName$clusterVersion/private.csr
+
       - echo ---------- Signing $clusterName$clusterVersion CA CSR with Intermediate CA ----------
       - openssl x509 -req -in ca/$clusterName$clusterVersion/private.csr -CA ca/clusters_intca/public.crt -CAkey ca/clusters_intca/private.key -CAcreateserial -days 730 -sha256 -out ca/$clusterName$clusterVersion/public.crt
+
+      - echo
+      - echo ---------- SUMMARY ----------
       - echo
       - echo ">>>>> Root CA Private key - ca/ca/ca.key"
       - echo ">>>>> Root CA Public key - ca/ca/ca.crt"
@@ -80,6 +98,8 @@ tasks:
       - echo ">>>>> $clusterName$clusterVersion CA Private key - ca/clusters_intca/private.key"
       - echo ">>>>> $clusterName$clusterVersion CA Certificate signing request  - ca/clusters_intca/private.csr"
       - echo ">>>>> $clusterName$clusterVersion CA Public key - ca/clusters_intca/public.crt"
+      - echo
+      - echo "Generation complete! If you're bootstrapping a new cluster, you may now follow up with the ca:kubernetees task to generate those materials."
 
   obliterate:
     silent: true
@@ -94,4 +114,30 @@ tasks:
     dir: ca/
     cmds:
       - rm -rf ca/
+
+  kubernetes:
+    silent: true
+    desc: Generates cryptographic materiel necessary to bootstrap a Kubernetees cluster
+    deps: [
+      ck_config,
+      ck_commands,
+      ck_cagenerated
+    ]
+    dir: ca/
+    dotenv: ['config.conf']
+    cmds:
+      - echo "---------- Sourcing values ----------"
+      - echo ">>>>> Cluster name - $clusterName"
+      - echo ">>>>> Cluster version - $clusterVersion"
+      - echo ">>>>> External control domain - $externalControlDomain"
+      - echo ">>>>> Root CA Private key - ca/ca/ca.key"
+      - echo ">>>>> Root CA Public key - ca/ca/ca.crt"
+      - echo ">>>>> Intermediate CA Private key - ca/clusters_intca/private.key"
+      - echo ">>>>> Intermediate CA Certificate signing request  - ca/clusters_intca/private.csr"
+      - echo ">>>>> Intermediate CA Public key - ca/clusters_intca/public.crt"
+      - echo ">>>>> $clusterName$clusterVersion CA Private key - ca/clusters_intca/private.key"
+      - echo ">>>>> $clusterName$clusterVersion CA Certificate signing request  - ca/clusters_intca/private.csr"
+      - echo ">>>>> $clusterName$clusterVersion CA Public key - ca/clusters_intca/public.crt"
+      - echo
+
 
