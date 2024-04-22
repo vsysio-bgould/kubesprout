@@ -41,6 +41,56 @@ tasks:
       - sh: test -f ca/ca.crt
         msg: "A root certificate hierarchy must already be generated. Run ca:generate first."
 
+  # Help
+
+  help:
+    desc: Information
+    silent: true
+    cmds:
+      - echo {{ .BLUE }} {{ .BOLD}} --------------- {{.STANDOUT}}Kubesprout Certificate Authority Module{{.NO_STANDOUT}} --------------- {{ .END }}
+      - echo
+      - echo This module generates a certificate hierarchy that is used by Kubernetes components
+      - echo to authenticate and authorize communications with other components and entitites. The
+      - echo output of this modules commands are a set of private keys and certificates that are
+      - echo available in the {{ .BOLD }}{{ .ITALIC}}ca/ca/{{ .END }} directory.
+      - echo
+      - echo {{.BLUE}} ----- {{.STANDOUT}}Certificate Hierarchy{{.NO_STANDOUT}} ----- {{.END}}
+      - echo The below flow chart shows the certificate hierarchy. All Kubernetes components are
+      - echo signed with the {{.ITALIC}}"Cluster-local Certificate Authority"{{.END}} located at "layer" 3. A system
+      - echo that needs to authenticate using this hierarchy needs to have one of the Certificate
+      - echo Authorities listed below installed.
+      - echo
+      - task ca:show_hierarchy
+      - echo
+      - echo {{ .BOLD }}{{.UNDERLINE}}Tasks:{{.END}}
+      - task | grep ca
+
+  show_hierarchy:
+    desc: Print ASCII representation of resulting certificate hierarchy
+    silent: true
+    dotenv: ['config.conf']
+    dir: ca/
+    cmds:
+      - printf "{{.BOLD}}1. Root Certificate Authority{{.END}}\n   Cert - ./ca/ca/ca.crt\n   Key  - ./ca/ca/ca.key" | boxes -d stone
+      - printf "\n    |\n"
+      - printf "{{.BOLD}}2. Intermediate Certificate Authority{{.END}}{{.ITALIC}} (signed by Root Certificate Authority){{.END}}\n   Cert - ./ca/ca/clusters_intca/private.crt\n   Key  - ./ca/ca/clusters_intca/private.key" | boxes -d stone
+      - printf "\n    |\n"
+      - printf "{{.BOLD}}3. Cluster-local Certificate Authority{{.END}}{{.ITALIC}} (signed by Intermediate Certificate Authority){{.END}}\n   Cert - .ca/ca/$clusterName$clusterVersion/public.crt\n   Key  - ./ca/ca/$clusterName$clusterVersion/private.key" | boxes -d stone
+      - printf "\n    |\n"
+      - printf "{{.BOLD}}kube-apiserver{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/kube-apiserver/" | boxes -d stone
+      - printf "\n"
+      - printf "{{.BOLD}}kube-controller-manager{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/kube-controller-manager/" | boxes -d stone
+      - printf "\n"
+      - printf "{{.BOLD}}kube-proxy{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/kube-proxy/" | boxes -d stone
+      - printf "\n"
+      - printf "{{.BOLD}}kube-scheduler{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/kube-scheduler/" | boxes -d stone
+      - printf "\n"
+      - printf "{{.BOLD}}service-accounts{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/service-accounts/" | boxes -d stone
+      - printf "\n"
+      - printf "{{.BOLD}}admin{{.END}}{{.ITALIC}} (signed by Cluster-local Certificate Authority){{.END}}\n   Path - .ca/ca/$clusterName$clusterVersion/admin/" | boxes -d stone
+
+
+
 
   # Meat and Potatoes (yum!)
   generate:
@@ -117,7 +167,8 @@ tasks:
 
   kubernetes:
     silent: true
-    desc: Generates cryptographic materiel necessary to bootstrap a Kubernetees cluster
+    desc: Generates cryptographic materiel necessary to bootstrap the base elements of a Kubernetees cluster.
+    interactive: true
     deps: [
       ck_config,
       ck_commands,
@@ -139,5 +190,51 @@ tasks:
       - echo ">>>>> $clusterName$clusterVersion CA Certificate signing request  - ca/clusters_intca/private.csr"
       - echo ">>>>> $clusterName$clusterVersion CA Public key - ca/clusters_intca/public.crt"
       - echo
+      - mkdir -p ca/$clusterName$clusterVersion/kube-apiserver/
+      - mkdir -p ca/$clusterName$clusterVersion/kube-controller-manager/
+      - mkdir -p ca/$clusterName$clusterVersion/kube-scheduler/
+      - mkdir -p ca/$clusterName$clusterVersion/kube-proxy/
+      - mkdir -p ca/$clusterName$clusterVersion/service-accounts/
+      - mkdir -p ca/$clusterName$clusterVersion/admin/
+
+      # GENERATE PRIVATE KEY MATERIAL
+      - echo ---------- Generating private key material for kube-apiserver ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/kube-apiserver/private.key 4096
+      - echo
+      - echo ---------- Generating private key material for kube-controller-manager ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/kube-controller-manager/private.key 4096
+      - echo
+      - echo ---------- Generating private key material for kube-scheduler ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/kube-scheduler/private.key 4096
+      - echo
+      - echo ---------- Generating private key material for kube-proxy ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/kube-proxy/private.key 4096
+      - echo
+      - echo ---------- Generating private key material for service-accounts ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/service-accounts/private.key 4096
+      - echo
+      - echo ---------- Generating private key material for admin ----------
+      - openssl genrsa -out ca/$clusterName$clusterVersion/admin/private.key 4096
+
+      # GENERATE CSRs
+      - echo ---------- Generating Certificate Signing Request for kube-apiserver ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/kube-apiserver/private.key -sha256 -config "k8s.conf" -section "kube-api-server" -out ca/$clusterName$clusterVersion/kube-apiserver/private.csr
+      - echo ---------- Generating Certificate Signing Request for kube-controller-manager ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/kube-controller-manager/private.key -sha256 -config "k8s.conf" -section "kube-controller-manager" -out ca/$clusterName$clusterVersion/kube-controller-manager/private.csr
+      - echo ---------- Generating Certificate Signing Request for kube-scheduler ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/kube-scheduler/private.key -sha256 -config "k8s.conf" -section "kube-scheduler" -out ca/$clusterName$clusterVersion/kube-scheduler/private.csr
+      - echo ---------- Generating Certificate Signing Request for kube-proxy ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/kube-proxy/private.key -sha256 -config "k8s.conf" -section "kube-proxy" -out ca/$clusterName$clusterVersion/kube-proxy/private.csr
+      - echo ---------- Generating Certificate Signing Request for service-accounts ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/service-accounts/private.key -sha256 -config "k8s.conf" -section "service-accounts" -out ca/$clusterName$clusterVersion/service-accounts/private.csr
+      - echo ---------- Generating Certificate Signing Request for admin ----------
+      - openssl req -new -key ca/$clusterName$clusterVersion/admin/private.key -sha256 -config "k8s.conf" -section "admin" -out ca/$clusterName$clusterVersion/admin/private.csr
+
+      # GENERATE NEW PUBLIC KEYS
+
+
+
+
+
 
 

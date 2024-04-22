@@ -5,6 +5,24 @@ includes:
     taskfile: ca/Taskfile.yml
     optional: false
 
+vars:
+  END: "\e[0m"
+  RED: "\e[31m"
+  GREEN: "\e[32m"
+  BLUE: "\e[34m"
+  BOLD:
+    sh: tput bold
+  ITALIC:
+    sh: tput sitm
+  UNDERLINE:
+    sh: tput smul
+  NO_UNDERLINE:
+    sh: tput rmul
+  STANDOUT:
+    sh: tput smso
+  NO_STANDOUT:
+    sh: tput rmso
+
 tasks:
   default:
     silent: true
