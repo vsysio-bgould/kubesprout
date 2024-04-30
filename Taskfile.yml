@@ -7,6 +7,13 @@ includes:
   etcd:
     taskfile: etcd/Taskfile.yml
     optional: false
+  esxi65:
+    taskfile: esxi65/Taskfile.yml
+    optional: false
+
+dotenv: [
+  'esxi65/config.conf'
+]
 
 vars:
   END: "\e[0m"
@@ -29,5 +36,42 @@ vars:
 tasks:
   default:
     silent: true
+    interactive: true
     cmds:
-      - task --list-all
+      - task --list
+
+  header:
+    desc: "Pretty prints output provided as CLI ARGS as a header"
+    silent: true
+    aliases:  [ "h2" ]
+    vars:
+      MESSAGE: '{{.CLI_ARGS}}'
+    preconditions:
+      - sh: test ! -z "{{.MESSAGE}}"
+        msg: "Internal task `header` takes a MESSAGE as parameter. Hint: `task header -- <Header Text>`"
+    cmds:
+      - echo "{{.RED}}----------{{.BLUE}} {{.MESSAGE}} {{.RED}}----------{{.END}}"
+
+  standout:
+    desc: "Pretty prints output provided as CLI ARGS as a standout header"
+    silent: true
+    aliases: [ "h1" ]
+    vars:
+      MESSAGE: '{{.CLI_ARGS}}'
+    preconditions:
+      - sh: test ! -z "{{.MESSAGE}}"
+        msg: "Internal task `standout` takes a MESSAGE as parameter. Hint: `task header -- <Header Text>`"
+    cmds:
+      - echo "{{.RED}}----------{{.BLUE}}{{.STANDOUT}} {{.MESSAGE}} {{.NO_STANDOUT}}{{.RED}}----------{{.END}}"
+
+  subheader:
+    desc: "Pretty prints output provided as CLI ARGS as a header"
+    silent: true
+    aliases: [ "h3" ]
+    vars:
+      MESSAGE: '{{.CLI_ARGS}}'
+    preconditions:
+      - sh: test ! -z "{{.MESSAGE}}"
+        msg: "Internal task `subheader` takes a MESSAGE as parameter. Hint: `task header -- <Header Text>`"
+    cmds:
+      - echo "{{.BOLD}}{{.UNDERLINE}}{{.MESSAGE}}{{.END}}"

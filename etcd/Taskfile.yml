@@ -99,14 +99,14 @@ tasks:
       - task ca:single -- {{.NODE2_NAME}}.vmnet.arpa
       - echo "{{.BLUE}}--------- {{.STANDOUT}}Generating VM image for {{.NODE1_NAME}} from etcd Dockerfile{{.NO_STANDOUT}} ----------{{.END}}"
       - echo "{{.BOLD}}NOTE:{{.END}} This may take a LONG ASS TIME!" | boxes -d stone
-      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm linkacloud/d2vm:v0.2.0-b27add5-dev build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE1_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE1_NAME}} --keep-cache --output images/{{.NODE1_NAME}}.vhdx --network-manager netplan --verbose
+      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm vsysio/d2vm:latest build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE1_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE1_NAME}} --keep-cache --output images/{{.NODE1_NAME}}.vmdk --network-manager netplan
       - echo "{{.BLUE}}--------- {{.STANDOUT}}Generating VM image for {{.NODE2_NAME}} from etcd Dockerfile{{.NO_STANDOUT}} ----------{{.END}}"
       - echo "{{.BOLD}}NOTE:{{.END}} This may take a LONG ASS TIME!" | boxes -d stone
-      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm linkacloud/d2vm:v0.2.0-b27add5-dev build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE2_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE2_NAME}} --keep-cache --output images/{{.NODE2_NAME}}.vhdx --network-manager netplan --verbose
+      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm vsysio/d2vm:latest build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE2_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE2_NAME}} --keep-cache --output images/{{.NODE2_NAME}}.vmdk --network-manager netplan
       - echo "{{.BLUE}}----------{{.STANDOUT}} SUMMARY {{.NO_STANDOUT}}----------{{.END}}"
-      - printf "{{.BOLD}}{{.NODE1_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE1_NAME}}\nContainer Size - $(docker inspect {{.NODE1_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE1_NAME}}.vhdx\nVM Size - $(du -b images/{{.NODE1_NAME}}.vhdx | numfmt --to=iec-i)"  | boxes -d stone
+      - printf "{{.BOLD}}{{.NODE1_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE1_NAME}}\nContainer Size - $(docker inspect {{.NODE1_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE1_NAME}}.vmdk\nVM Size - $(du -b images/{{.NODE1_NAME}}.vmdk | numfmt --to=iec-i)"  | boxes -d stone
       - echo
-      - printf "{{.BOLD}}{{.NODE2_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE2_NAME}}\nContainer Size - $(docker inspect {{.NODE2_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE2_NAME}}.vhdx\nVM Size - $(du -b images/{{.NODE2_NAME}}.vhdx | numfmt --to=iec-i)"  | boxes -d stone
+      - printf "{{.BOLD}}{{.NODE2_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE2_NAME}}\nContainer Size - $(docker inspect {{.NODE2_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE2_NAME}}.vmdk\nVM Size - $(du -b images/{{.NODE2_NAME}}.vmdk | numfmt --to=iec-i)"  | boxes -d stone
       - echo
       - echo "{{.BLUE}}----------{{.STANDOUT}} NEXT STEPS {{.NO_STANDOUT}}----------{{.END}}"
       - echo "1. Import the above two etcd VM images into your hypervisor of choice. {{.BOLD}}DO NOT START THE VMs!{{.END}} Ensure they are on the same network."
@@ -123,7 +123,7 @@ tasks:
     silent: true
     cmds:
       - echo "---------- Removing dangling Docker images ----------"
-      - docker image rm $(docker image ls --filter label=function=etcd --quiet)
+      - docker image rm $(docker image ls --filter label=function=etcd --quiet) --force
       - echo "---------- Removing orphaned crypto credentials from ca directory ----------"
       - rm -rfv ca/ca/$clusterName$clusterVersion/etcd-*
       - echo "---------- Removing dangling VM images ----------"
