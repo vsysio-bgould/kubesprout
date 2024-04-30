@@ -270,6 +270,9 @@ tasks:
       [organization] is optional and generally represents a group to which the entity belongs (such as system:masters)
     dir: ca/
     dotenv: ['config.conf']
+    deps: [
+      ck_cagenerated
+    ]
     vars:
       CN: '{{(split " " .CLI_ARGS)._0}}'
       ORGV: '{{(split " " .CLI_ARGS)._1}}'

@@ -27,6 +27,13 @@ legal representative of the entity possessing the Kubesprout tradename.
 
 ## Prerequisites
 
+### Software Dependencies
+
+With the exception of `go-task`, software dependencies and versions are verified with Task before a 
+given task runs.
+
+#### go-task
+
 `go-task` is required to operate this repository.
 
 Quick-install for Linux users:
@@ -38,6 +45,45 @@ sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
 *Make sure ~/.local/bin is in your PATH.*
 
 For fruity and breezy systems, [browse to go-tasks' documentation.](https://taskfile.dev/installation/)
+
+#### jq/yq
+
+These utilities are used to read and set various parameters in JSON and YAML files.
+
+#### openssl 3.0.0+ -- DONT MISS THIS ONE!
+
+**Don't miss this one.** If I didn't bold this text, you'd probably skip this over because openssl is ubiquitous everywhere, right?
+However, check your version of openssl with `openssl version`. Unless you have a very recent distro (ie.Ubuntu 22.04 or newer) 
+you're probably running openssl 1.x.x.
+
+#### Docker 
+
+Docker is used to generate container images that are then converted to VM images using this kool utility.
+
+Task will verify that docker is installed **and working** before proceeding with docker-related shenanigans.
+
+Sorry, I can only squeeze so many CRIs into my head at once, so other container runtimes aren't supported .
+
+### Infrastructure Dependencies
+
+On my home network, I use a dedicated netgate router running pfSense along with managed switches and VLANs, which
+gives me a great deal of control over DHCP and DNS.
+
+#### DHCP
+
+You must be able to statically assign IP addresses to VMs on your network through a common DHCP server.
+
+#### DNS Split-Horizon (or custom local zone)
+
+You must have authoritative control of a DNS domain. This can be accomplished via registering a domain OR
+with a custom DNS server that can either perform split-horizon resolution of an existing domain or host 
+a local-only domain for you.
+
+All compute products generated in this repository will have an assigned hostname.
+
+**Note** that as required by [per RFC 1918](https://www.rfc-editor.org/rfc/rfc1918), some DNS resolvers will reject
+queries resolving to private networks (such as 192.168.x.x) with `NXDOMAIN` or `SERVFAIL.` These DNS resolvers will likely
+provide a mechanism to override this functionality.
 
 ## Components
 

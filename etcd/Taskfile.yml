@@ -1,0 +1,121 @@
+version: '3'
+
+tasks:
+
+  # Checks and Balances
+
+  ck_docker:
+    desc: "Checks that docker is installed and sane"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v docker
+        msg: "Terraform utility needs to be installed"
+      - sh: docker run hello-world
+        msg: "Docker installed but not running in a sane configuration. Check output of `docker run hello-world`."
+
+  ck_cagenerated:
+    desc: "Validates whether a CA hierarchy is available to inject into images"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: test -f ca/ca/ca.crt
+        msg: "A certificate hierarchy is not avaiLable. Hint: Try `task ca:generate`"
+
+  ck_yq:
+    desc: "Validates whether the yq utility is installed"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v yq
+        msg: "yq utility needs to be installed."
+
+  ck_jq:
+    desc: "Validates whether the jq utility is installed"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v jq
+        msg: "jq utility needs to be installed."
+
+  ck_ovftool:
+   desc: "Ensure ovftool utility installed"
+   silent: true
+   internal: true
+   preconditions:
+     - sh: command -v ovftool
+       msg: "ovftool utility needs to be installed. Download here: https://developer.vmware.com/web/tool/ovf/"
+
+
+  # Keep Latest Versions
+
+  update_d2vm:
+    desc: "Ensures we have the most recent copy of the d2vm container distributed via https://github.com/linka-cloud/d2vm"
+    silent: true
+    internal: true
+    cmds:
+      - echo "{{.BLUE}}--------- {{.STANDOUT}}Checking for latest version of d2vm container {{.NO_STANDOUT}} ----------{{.END}}"
+      - echo "{{.ITALIC}}Credit to https://github.com/linka-cloud/d2vm for developing d2vm{{.END}}"
+      - docker pull linkacloud/d2vm:latest
+
+  # Meat and Potatoes
+
+  default:
+    desc: List commands
+    cmds:
+    - task --list
+
+  build:
+    desc: "Builds two images"
+    dotenv: ['ca/config.conf']
+    silent: true
+    interactive: true
+    vars:
+      NODE1_NAME:
+        sh: echo etcd-$(tr -dc A-Za-z0-9 </dev/urandom | head -c 6 | tr '[:upper:]' '[:lower:]')
+      NODE2_NAME:
+        sh: sleep 1 && echo etcd-$(tr -dc A-Za-z0-9 </dev/urandom | head -c 6 | tr '[:upper:]' '[:lower:]')
+    deps: [
+      ck_cagenerated,
+      ck_docker,
+      ck_yq,
+      ck_jq,
+      update_d2vm,
+      ck_ovftool
+    ]
+    cmds:
+      - mkdir -p images
+      - echo "{{.BLUE}}--------- {{.STANDOUT}}Generating cryptographic materials{{.NO_STANDOUT}} ----------{{.END}}"
+      - task ca:single -- {{.NODE1_NAME}}.vmnet.arpa
+      - task ca:single -- {{.NODE2_NAME}}.vmnet.arpa
+      - echo "{{.BLUE}}--------- {{.STANDOUT}}Generating VM image for {{.NODE1_NAME}} from etcd Dockerfile{{.NO_STANDOUT}} ----------{{.END}}"
+      - echo "{{.BOLD}}NOTE:{{.END}} This may take a LONG ASS TIME!" | boxes -d stone
+      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm linkacloud/d2vm:v0.2.0-b27add5-dev build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE1_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE1_NAME}} --keep-cache --output images/{{.NODE1_NAME}}.vhdx --network-manager netplan --verbose
+      - echo "{{.BLUE}}--------- {{.STANDOUT}}Generating VM image for {{.NODE2_NAME}} from etcd Dockerfile{{.NO_STANDOUT}} ----------{{.END}}"
+      - echo "{{.BOLD}}NOTE:{{.END}} This may take a LONG ASS TIME!" | boxes -d stone
+      - docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v .:/d2vm -w /d2vm linkacloud/d2vm:v0.2.0-b27add5-dev build . -f etcd/Dockerfile --build-arg ETCD_NODE_NAME={{.NODE2_NAME}} --build-arg CLUSTER_NAME=$clusterName --build-arg CLUSTER_VERSION=$clusterVersion --build-arg PEER_ADVERTISE=https://{{.NODE1_NAME}}:2380,https://{{.NODE2_NAME}}:2380 --build-arg CLIENT_ADVERTISE=https://{{.NODE1_NAME}}:2379,https://{{.NODE2_NAME}}:2379 -f etcd/Dockerfile -t {{.NODE2_NAME}} --keep-cache --output images/{{.NODE2_NAME}}.vhdx --network-manager netplan --verbose
+      - echo "{{.BLUE}}----------{{.STANDOUT}} SUMMARY {{.NO_STANDOUT}}----------{{.END}}"
+      - printf "{{.BOLD}}{{.NODE1_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE1_NAME}}\nContainer Size - $(docker inspect {{.NODE1_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE1_NAME}}.vhdx\nVM Size - $(du -b images/{{.NODE1_NAME}}.vhdx | numfmt --to=iec-i)"  | boxes -d stone
+      - echo
+      - printf "{{.BOLD}}{{.NODE2_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE2_NAME}}\nContainer Size - $(docker inspect {{.NODE2_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE2_NAME}}.vhdx\nVM Size - $(du -b images/{{.NODE2_NAME}}.vhdx | numfmt --to=iec-i)"  | boxes -d stone
+      - echo
+      - echo "{{.BLUE}}----------{{.STANDOUT}} NEXT STEPS {{.NO_STANDOUT}}----------{{.END}}"
+      - echo "1. Import the above two etcd VM images into your hypervisor of choice. {{.BOLD}}DO NOT START THE VMs!{{.END}} Ensure they are on the same network."
+      - echo "2. Configure your DHCP server to statically assign addresses to these VMs. On ESXi, I need to boot a VM and then terminate it before it fully boots in other to collect the auto-generated MAC."
+      - echo "3. Configure your DNS server to resolve the hostnames assigned to the etcd VMs."
+      - echo "4. Start the VMs =)"
+
+  clean:
+    desc: "Cleans up work produced by this repository (such as dangling Docker images)"
+    deps: [
+      ck_docker
+    ]
+    dotenv: ['ca/config.conf']
+    silent: true
+    cmds:
+      - echo "---------- Removing dangling Docker images ----------"
+      - docker image rm $(docker image ls --filter label=function=etcd --quiet)
+      - echo "---------- Removing orphaned crypto credentials from ca directory ----------"
+      - rm -rfv ca/ca/$clusterName$clusterVersion/etcd-*
+      - echo "---------- Removing dangling VM images ----------"
+      - rm -rfv images/etcd-*

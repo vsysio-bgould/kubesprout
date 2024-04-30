@@ -8,3 +8,9 @@ ca/ca/*
 
 # Do not version custom config files
 ca/config.conf
+
+# Do not version Terraform statefiles and modules
+*/tf/*/.tfstate
+
+# Do not version very large image files
+images/*

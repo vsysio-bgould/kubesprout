@@ -4,6 +4,9 @@ includes:
   ca:
     taskfile: ca/Taskfile.yml
     optional: false
+  etcd:
+    taskfile: etcd/Taskfile.yml
+    optional: false
 
 vars:
   END: "\e[0m"
