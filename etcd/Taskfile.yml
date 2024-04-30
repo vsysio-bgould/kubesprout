@@ -22,6 +22,14 @@ tasks:
       - sh: test -f ca/ca/ca.crt
         msg: "A certificate hierarchy is not avaiLable. Hint: Try `task ca:generate`"
 
+  ck_boxes:
+    desc: "Verifies that the `boxes` utility is installed"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v boxes
+        msg: "Boxes utility needs to be installed."
+
   ck_yq:
     desc: "Validates whether the yq utility is installed"
     silent: true
@@ -81,7 +89,8 @@ tasks:
       ck_yq,
       ck_jq,
       update_d2vm,
-      ck_ovftool
+      ck_ovftool,
+      ck_boxes
     ]
     cmds:
       - mkdir -p images

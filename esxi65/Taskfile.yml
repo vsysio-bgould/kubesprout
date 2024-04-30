@@ -1,0 +1,92 @@
+version: '3'
+
+tasks:
+
+  # Checks and Balances
+
+  ck_configured:
+    desc: "Verifies that esxi65/config.conf is populated properly."
+    silent: true
+    internal: true
+    preconditions:
+      - sh: test -f esxi65/config.conf
+        msg: "This task requires the esxi65 config to be populated. Hint: rename `esxi65/config.conf.sample` to `esxi65/config.conf` and populate values."
+      - sh: |
+          export LINE=$(cat esxi65/config.conf | grep sshPubKey=)
+          echo LINE
+          if [[ "$LINE" == *"~"* ]]; then
+            exit 1
+          fi
+        msg: "Implementation does not support home path interpolation with the tilde (~) character. Use a fully qualified path in esxi65/config.conf instead."
+
+  ck_nc:
+    desc: "Verifies that the nc utility is installed"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v nc
+        msg: "nc (netcat) utility needs to be installed to run this task"
+
+  ck_sshconnect:
+    desc: "Verifies that specified esxi host can be connected to over SSH"
+    silent: true
+    internal: true
+    deps: [
+      ck_configured,
+      ck_nc
+    ]
+    preconditions:
+      - sh: timeout 3 bash -c "</dev/tcp/$esxiHost/22"; echo $?
+        msg: "Could not connect to ESXi over SSH. Check config, and check that SSH is running on the host."
+
+  ck_sshauthenticate:
+    desc: "Verifies that we can successfully authenticate with ESXi over SSH using our Public Key"
+    silent: true
+    internal: true
+    deps: [
+      ck_configured
+    ]
+    preconditions:
+      - sh: ssh -oBatchMode=yes $esxiUser@$esxiHost
+        msg: "Error when testing connectivity and authentication against ESXi host. Hint - try `task esxi65:sshkey` for help"
+
+  # Meat and Potatoes (yum!)
+
+  sshkey:
+    desc: "Explains how to install your SSH key to an ESXi 6.x host."
+    silent: true
+    deps: [
+      ck_configured
+    ]
+    cmds:
+      - task h2 -- How to install an SSH key to an ESXi 6.x host
+      - echo "{{.ITALIC}}Reference - https://kb.vmware.com/s/article/1002866{{.END}}"
+      - echo
+      - task h3 -- SSH Public Key
+      - cat $sshPubKey
+      - echo
+      - task h3 -- Instructions
+      - echo "1. Connect to your ESXi host over SSH."
+      - echo "2. Ensure the {{.BOLD}}/etc/ssh/keys-$esxiUser{{.END}} directory exists, is owned by $esxiUser, and has {{.BOLD}}chmod 0700{{.END}}"
+      - echo "3. Ensure the file {{.BOLD}}/etc/ssh/keys-$esxiUser/authorized_keys{{.END}} exists, is owned by $esxiUser, and has {{.BOLD}}chmod 0600{{.END}}"
+      - echo "4. Add the contents of {{.BOLD}}{{.UNDERLINE}}SSH Public Key{{.END}} (above header) to {{.BOLD}}/etc/ssh/keys-$esxiUser/authorized_keys{{.END}}"
+      - echo "5. In {{.BOLD}}/etc/ssh/sshd_config{{.END}}, ensure {{.BOLD}}{{.UNDERLINE}}AuthorizedKeysFile{{.END}} is set to {{.BOLD}}yes{{.END}}"
+      - echo "6. {{.BOLD}}[IF ROOT]{{.END}} In {{.BOLD}}/etc/ssh/sshd_config{{.END}}, ensure {{.BOLD}}{{.UNDERLINE}}PermitRootLogin{{.END}} is set to {{.BOLD}}yes{{.END}}"
+      - echo "7. If you needed to alter {{.BOLD}}/etc/ssh/sshd_config{{.END}}, restart the sshd service with {{.BOLD}}/etc/init.d/SSH restart{{.END}}"
+
+  datastores:
+    desc: "Lists datastores on ESXi host"
+    silent: true
+    vars:
+      URI: '$esxiUser@$esxiHost'
+    deps: [
+      ck_configured,
+      ck_sshconnect,
+      ck_sshauthenticate
+    ]
+    cmds:
+      - ssh {{.URI}} esxcli storage filesystem list -i
+
+
+
+

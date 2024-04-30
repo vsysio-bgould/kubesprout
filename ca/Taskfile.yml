@@ -40,12 +40,22 @@ tasks:
     preconditions:
       - sh: test -f ca/ca.crt
         msg: "A root certificate hierarchy must already be generated. Run ca:generate first."
+  ck_boxes:
+    desc: "Verifies that the `boxes` utility is installed"
+    silent: true
+    internal: true
+    preconditions:
+      - sh: command -v boxes
+        msg: "Boxes utility needs to be installed."
 
   # Help
 
   help:
     desc: Information
     silent: true
+    deps: [
+      ck_boxes
+    ]
     cmds:
       - echo {{ .BLUE }} {{ .BOLD}} --------------- {{.STANDOUT}}Kubesprout Certificate Authority Module{{.NO_STANDOUT}} --------------- {{ .END }}
       - echo
@@ -74,6 +84,9 @@ tasks:
     silent: true
     dotenv: ['config.conf']
     dir: ca/
+    deps: [
+      ck_boxes
+    ]
     cmds:
       - printf "{{.BOLD}}1. Root Certificate Authority{{.END}}\n   Cert - ./ca/ca/ca.crt\n   Key  - ./ca/ca/ca.key" | boxes -d stone
       - printf "\n    |\n"
