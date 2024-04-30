@@ -8,6 +8,7 @@ ca/ca/*
 
 # Do not version custom config files
 ca/config.conf
+esx65/config.conf
 
 # Do not version Terraform statefiles and modules
 */tf/*/.tfstate

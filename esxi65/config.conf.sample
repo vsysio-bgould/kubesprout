@@ -1,0 +1,12 @@
+# IP/Hostname of ESXi box
+esxiHost=192.168.100.1
+
+# Username to use when connecting to ESXi box over SSH
+esxiUser=bgreen
+
+# Location of your SSH public key
+sshPubKey=/home/bgreen/.ssh/id_rsa.pub
+
+# UUID of datastore on ESXi host to use for temporary work (such as VMDK conversion)
+# Can list available datastores on the ESXi host using `task esxi65:datastores` before populating this value
+scratchDatastoreUUID=3829f398-b5affsb10-f0a4-842b2b656a50
