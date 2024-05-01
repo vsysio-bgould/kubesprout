@@ -60,7 +60,7 @@ tasks:
       MESSAGE: '{{.CLI_ARGS}}'
     preconditions:
       - sh: test ! -z "{{.MESSAGE}}"
-        msg: "Internal task `standout` takes a MESSAGE as parameter. Hint: `task header -- <Header Text>`"
+        msg: "Internal task `standout` takes a MESSAGE as parameter. Hint: `task standout -- <Header Text>`"
     cmds:
       - echo "{{.RED}}----------{{.BLUE}}{{.STANDOUT}} {{.MESSAGE}} {{.NO_STANDOUT}}{{.RED}}----------{{.END}}"
 
@@ -72,6 +72,17 @@ tasks:
       MESSAGE: '{{.CLI_ARGS}}'
     preconditions:
       - sh: test ! -z "{{.MESSAGE}}"
-        msg: "Internal task `subheader` takes a MESSAGE as parameter. Hint: `task header -- <Header Text>`"
+        msg: "Internal task `subheader` takes a MESSAGE as parameter. Hint: `task subheader -- <Header Text>`"
     cmds:
       - echo "{{.BOLD}}{{.UNDERLINE}}{{.MESSAGE}}{{.END}}"
+
+  important:
+    desc: "Pretty prints output provided as CLI ARGS as important output"
+    silent: true
+    vars:
+      MESSAGE: '{{.CLI_ARGS}}'
+    preconditions:
+      - sh: test ! -z "{{.MESSAGE}}"
+        msg: "Internal task `important` takes a MESSAGE as parameter. Hint: `task important -- <Text>"
+    cmds:
+      - echo "{{.BOLD}}{{.RED}}{{.MESSAGE}}{{.END}}"

@@ -50,6 +50,48 @@ tasks:
       - sh: ssh -oBatchMode=yes $esxiUser@$esxiHost
         msg: "Error when testing connectivity and authentication against ESXi host. Hint - try `task esxi65:sshkey` for help"
 
+  ck_datastore:
+    desc: "Checks datastore on remote ESXi host."
+    silent: true
+    internal: true
+    deps: [
+      ck_configured,
+      ck_sshconnect,
+      ck_sshauthenticate
+    ]
+    preconditions:
+      - sh: ssh -oBatchMode=yes $esxiUser@$esxiHost test -d /vmfs/volumes/$scratchDatastoreUUID
+        msg: "Unable to validate datastore exists on remote EXSi host."
+
+  ck_haveiniparser:
+    desc: "Checks if we have the ini-parser in our local tree and clones it if not"
+    internal: true
+    silent: true
+    deps: [
+      ck_git
+    ]
+    cmds:
+      - |
+        if [[ ! -d "esxi65/ini-file-parser/.git"  ]]; then
+          task -t $(git rev-parse --show-toplevel)/Taskfile.yml important -- ini-file-parser utility not installed, installing
+          task -t $(git rev-parse --show-toplevel)/Taskfile.yml header -- Installing ini-file-parser utility
+          mkdir -p $(git rev-parse --show-toplevel)/esxi65/ini-file-parser
+          cd $(git rev-parse --show-toplevel)/ini-file-parser
+          git init
+          git remote add origin git@github.com:DevelopersToolbox/ini-file-parser.git
+          git fetch
+          git checkout master
+          cd ..
+        fi
+
+  ck_git:
+    desc: "Checks if git is installed"
+    internal: true
+    silent: true
+    preconditions:
+      - sh: command -v git
+        msg: "git must be installed to use this task"
+
   # Meat and Potatoes (yum!)
 
   sshkey:
@@ -87,6 +129,37 @@ tasks:
     cmds:
       - ssh {{.URI}} esxcli storage filesystem list -i
 
+  upload:
+    desc: "Upload Disk Image to scratch datastore"
+    silent: true
+    interactive: true
+    deps: [
+      ck_configured,
+      ck_sshconnect,
+      ck_sshauthenticate,
+      ck_datastore
+    ]
+    vars:
+      IMAGE: '{{.CLI_ARGS}}'
+      URI: '$esxiUser@$esxiHost'
+    preconditions:
+      - sh: test ! -z "{{.IMAGE}}"
+        msg: "This task takes the name of an image file in the images directory as an argument. Hint: `task esxi65:upload -- <ImageFile>`"
+      - sh: test -f "./images/{{.IMAGE}}.vmdk"
+        msg: "Looks like to specified an image file that doesn't exist, boss."
+    cmds:
+      - task h1 -- Uploading image file {{.IMAGE}}.vmdk to ESXi host
+      - echo "Image file - images/{{.IMAGE}}.vmdk"
+      - echo "ESXi host - $esxiHost"
+      - echo "Datastore - $scratchDatastoreUUID"
+      - echo
+      - task h2 -- Uploading images/{{.IMAGE}}.vmdk to /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk.
+      - ssh {{.URI}} mkdir -p /vmfs/volumes/$scratchDatastoreUUID/.kubesprout
+      - scp images/{{.IMAGE}}.vmdk {{.URI}}:/vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
+      - task h2 -- Running vmkfstools to convert VMDK file.
+      - ssh {{.URI}} vmkfstools -i /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}-converted.vmdk
+      - task h2 -- Cleaning up
+      - ssh {{.URI}} rm -f /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
 
 
 
