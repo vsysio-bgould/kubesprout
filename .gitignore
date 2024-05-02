@@ -15,3 +15,6 @@ esx65/config.conf
 
 # Do not version very large image files
 images/*
+
+# Do not version poor mans hosts database (el cheapo db couldn't afford to buy the backup feature)
+hosts/hosts.txt

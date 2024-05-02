@@ -53,7 +53,7 @@ tasks:
   ck_datastore:
     desc: "Checks datastore on remote ESXi host."
     silent: true
-    #internal: true
+    internal: true
     deps: [
       ck_configured,
       ck_sshconnect,
@@ -213,8 +213,8 @@ tasks:
       GUESTOS: '{{(split " " .CLI_ARGS)._4}}'
       URI: '$esxiUser@$esxiHost'
     preconditions:
-      - sh: test ! -z "{{.NETWORK}}"
-        msg: "This task takes several parameters. Hint: `task esxi65:upload -- <ImageFile> <Number of CPUs> <Memory Size in MB> <Network Name> [Guest OS (default ubuntu-64]]`"
+#      - sh: test ! -z "{{.NETWORK}}"
+#        msg: "This task takes several parameters. Hint: `task esxi65:upload -- <ImageFile> <Number of CPUs> <Memory Size in MB> <Network Name> [Guest OS (default ubuntu-64]]`"
       - sh: test -f "./images/{{.IMAGE}}.vmdk"
         msg: "Looks like you specified an image file that doesn't exist, boss."
       - sh: ssh {{.URI}} test -f /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
@@ -243,6 +243,16 @@ tasks:
       - ssh {{.URI}} vim-cmd solo/registervm /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmx {{.IMAGE}}
       - task h2 -- Cleaning up
       - ssh {{.URI}} rm -f /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmdk
+      - task h2 -- Adding host to hosts database
+      - |
+        # Extract MAC address
+        MAC=$(cat /tmp/{{.IMAGE}}.vmx | grep 'ethernet0.address\s=' | sed 's/ethernet0.address\s=\s\"\(.*\)"/\1/g')
+
+        # Post values to cheapo db
+        echo task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} ubuntu-64 $MAC
+        task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} ubuntu-64 $MAC
+
+
 
 
 

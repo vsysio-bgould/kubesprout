@@ -1,0 +1,72 @@
+version: '3'
+
+tasks:
+  list:
+    desc: "Lists hosts currently recorded in el cheapo database"
+    silent: true
+    cmds:
+      - |
+        if [[ ! -f "$(git rev-parse --show-toplevel)/hosts/hosts.txt"  ]]; then
+          touch "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+          printf "Hostname\tModule\tNumCPUs\tMemsize\tNetwork\tMAC\n" > "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+        fi
+
+        cat "$(git rev-parse --show-toplevel)/hosts/hosts.txt" | column -t
+
+  delhost:
+    desc: "Deletes host in cheapo db. Hint - `task hosts:delhost -- <HostName>`"
+    silent: true
+    vars:
+      HOSTNAME: '{{(split " " .CLI_ARGS)._0}}'
+    cmds:
+      - |
+        if [[ ! -f "$(git rev-parse --show-toplevel)/hosts/hosts.txt" ]]; then
+          touch $(git rev-parse --show-toplevel)/hosts/hosts.txt
+        fi
+
+        # See if entry exists and delete it if so
+
+        LINENUM=0
+        while read -r line
+        do
+          LINENUM+=1
+          if [[ "$line" == *"{{.HOSTNAME}}"* ]]; then
+            sed -e "$LINENUM" "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+          fi
+        done < "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+
+
+  addhost:
+    desc: "Adds (or modifies existing) host in cheapo db. Hint - `task hosts:addhost -- <Module making call ie. ca> <HostName> <Number of CPUs> <Memory size in MB> <Port group> <MAC Address>`"
+    silent: true
+    vars:
+      MODULE: '{{(split " " .CLI_ARGS)._0}}'
+      HOSTNAME: '{{(split " " .CLI_ARGS)._1}}'
+      NUMCPU: '{{(split " " .CLI_ARGS)._2}}'
+      MEMSIZE: '{{(split " " .CLI_ARGS)._3}}'
+      NETWORK: '{{(split " " .CLI_ARGS)._4}}'
+      MACADDR: '{{(split " " .CLI_ARGS)._5}}'
+    preconditions:
+      - sh: test ! -z "{{.MEMSIZE}}"
+        msg: "Task takes some parameters as input. Hint - `task hosts:addhost <Module making call ie. ca> <HostName> <Number of CPUs> <Memory size in MB> <Port group> <MAC Address>`"
+    cmds:
+      - |
+        if [[ ! -f "$(git rev-parse --show-toplevel)/hosts/hosts.txt" ]]; then
+          touch $(git rev-parse --show-toplevel)/hosts/hosts.txt
+          printf "Hostname\tModule\tNumCPUs\tMemsize\tNetwork\tMAC\n" > "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+        fi
+
+        # Line already exist? If so, just delete and later we'll append
+
+        LINENUM=0
+        while read -r line
+        do
+          LINENUM+=1
+          if [[ "$line" == *"{{.HOSTNAME}}"* ]]; then
+            sed -e "$LINENUM" "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+          fi
+        done < "$(git rev-parse --show-toplevel)/hosts/hosts.txt"
+
+        # Write the line
+
+        printf "{{.HOSTNAME}}\t{{.MODULE}}\t{{.NUMCPU}}\t{{.MEMSIZE}}\t{{.NETWORK}}\t{{.MACADDR}}\n" >> "$(git rev-parse --show-toplevel)/hosts/hosts.txt"

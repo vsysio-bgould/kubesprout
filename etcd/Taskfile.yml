@@ -75,8 +75,8 @@ tasks:
 
   build:
     desc: "Builds two images"
-    dotenv: ['ca/config.conf']
-    silent: true
+    dotenv: ['ca/config.conf', 'esxi65/config.conf']
+    #silent: true
     interactive: true
     vars:
       NODE1_NAME:
@@ -108,11 +108,21 @@ tasks:
       - echo
       - printf "{{.BOLD}}{{.NODE2_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE2_NAME}}\nContainer Size - $(docker inspect {{.NODE2_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE2_NAME}}.vmdk\nVM Size - $(du -b images/{{.NODE2_NAME}}.vmdk | numfmt --to=iec-i)"  | boxes -d stone
       - echo
-      - echo "{{.BLUE}}----------{{.STANDOUT}} NEXT STEPS {{.NO_STANDOUT}}----------{{.END}}"
-      - echo "1. Import the above two etcd VM images into your hypervisor of choice. {{.BOLD}}DO NOT START THE VMs!{{.END}} Ensure they are on the same network."
-      - echo "2. Configure your DHCP server to statically assign addresses to these VMs. On ESXi, I need to boot a VM and then terminate it before it fully boots in other to collect the auto-generated MAC."
-      - echo "3. Configure your DNS server to resolve the hostnames assigned to the etcd VMs."
-      - echo "4. Start the VMs =)"
+      #- echo "{{.BLUE}}----------{{.STANDOUT}} NEXT STEPS {{.NO_STANDOUT}}----------{{.END}}"
+      #- echo "1. Import the above two etcd VM images into your hypervisor of choice. {{.BOLD}}DO NOT START THE VMs!{{.END}} Ensure they are on the same network."
+      #- echo "2. Configure your DHCP server to statically assign addresses to these VMs. On ESXi, I need to boot a VM and then terminate it before it fully boots in other to collect the auto-generated MAC."
+      #- echo "3. Configure your DNS server to resolve the hostnames assigned to the etcd VMs."
+      #- echo "4. Start the VMs =)"
+      - task h1 -- Uploading and deploying built images to configured hypervisor
+      - task h2 -- Deploying {{.NODE1_NAME}}
+      - task esxi65:upload -- {{.NODE1_NAME}}
+      - task esxi65:deploy -- {{.NODE1_NAME}} 4 4096 $VMNetwork ubuntu-64
+      - task h2 -- Deploying {{.NODE2_NAME}}
+      - task esxi65:upload -- {{.NODE2_NAME}}
+      - task esxi65:deploy -- {{.NODE2_NAME}} 4 4096 $VMNetwork ubuntu-64
+      - echo
+      - task h3 -- Registered Hosts in cheapo DB
+      - task hosts:list
 
   clean:
     desc: "Cleans up work produced by this repository (such as dangling Docker images)"

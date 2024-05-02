@@ -10,6 +10,9 @@ includes:
   esxi65:
     taskfile: esxi65/Taskfile.yml
     optional: false
+  hosts:
+    taskfile: hosts/Taskfile.yml
+    optional: false
 
 dotenv: [
   'esxi65/config.conf'

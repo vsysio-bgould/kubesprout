@@ -50,7 +50,6 @@ MACADDRESS=$(echo $MACADDRESS | tr '[:lower:]' '[:upper:]')
 
 while IFS= read -r line;
 do
-  #echo -n $line
   newline=$(echo $line | sed -e 's/!!VMNAME!!/'${VMNAME}'/g')
   newline=$(echo $newline | sed -e 's/!!NUMCPU!!/'${NUMVCPU}'/g')
   newline=$(echo $newline | sed -e 's/!!MEMSIZE!!/'${MEMSIZE}'/g')
@@ -60,7 +59,6 @@ do
   newline=$(echo $newline | sed -e 's/!!SWAPFILE!!/'${SWAPFILE}'/g')
   newline=$(echo $newline | sed -e 's/!!MACADDRESS!!/'${MACADDRESS}'/g')
   OUTPUT+=$(echo "$line\t\t\t\t\t\t\t\t-> $newline\n")
-  #printf "\t\t\t\t\t\t\t\t-> $newline\n"
   if [[ "$STDOUTPUT" == "true" ]]; then
     printf "$newline\n"
   fi
