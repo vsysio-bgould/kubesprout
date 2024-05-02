@@ -76,7 +76,7 @@ tasks:
   build:
     desc: "Builds two images"
     dotenv: ['ca/config.conf', 'esxi65/config.conf']
-    #silent: true
+    silent: true
     interactive: true
     vars:
       NODE1_NAME:
