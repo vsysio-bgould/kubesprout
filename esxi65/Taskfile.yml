@@ -53,7 +53,7 @@ tasks:
   ck_datastore:
     desc: "Checks datastore on remote ESXi host."
     silent: true
-    internal: true
+    #internal: true
     deps: [
       ck_configured,
       ck_sshconnect,
@@ -62,6 +62,8 @@ tasks:
     preconditions:
       - sh: ssh -oBatchMode=yes $esxiUser@$esxiHost test -d /vmfs/volumes/$scratchDatastoreUUID
         msg: "Unable to validate datastore exists on remote EXSi host."
+      - sh: ssh -oBatchMode=yes $esxiUser@$esxiHost "touch /vmfs/volumes/$scratchDatastoreUUID/kubesprout-test-file && rm /vmfs/volumes/$scratchDatastoreUUID/kubesprout-test-file"
+        msg: "Datastore exists, but not writable."
 
   ck_haveiniparser:
     desc: "Checks if we have the ini-parser in our local tree and clones it if not"
@@ -91,6 +93,28 @@ tasks:
     preconditions:
       - sh: command -v git
         msg: "git must be installed to use this task"
+
+  ck_network:
+    desc: "Ensures selected port group/network exists on remote ESXi host"
+    internal: true
+    silent: true
+    vars:
+      URI: '$esxiUser@$esxiHost'
+      VMNetwork: '$VMNetwork'
+    preconditions:
+      - sh: |
+              OUTPUT=$(ssh {{.URI}} esxcli network vswitch standard portgroup list)
+              MISSING=true
+              echo $OUTPUT | while read -r line
+              do
+                if [[ "$line" == *"${VMNetwork}"* ]]; then
+                  MISSING=false
+                fi
+              done
+              if [[ "$MISSING" == true ]]; then
+                exit 1
+              fi
+        msg: "Network/port group specified in `esxi65/config.conf` does not exist on ESXi host."
 
   # Meat and Potatoes (yum!)
 
@@ -129,6 +153,19 @@ tasks:
     cmds:
       - ssh {{.URI}} esxcli storage filesystem list -i
 
+  networks:
+    desc: "List vSwitch port groups that a VM can be assigned to."
+    silent: true
+    vars:
+      URI: '$esxiUser@$esxiHost'
+    deps: [
+      ck_configured,
+      ck_sshconnect,
+      ck_sshauthenticate
+    ]
+    cmds:
+      - ssh {{.URI}} esxcli network vswitch standard portgroup list
+
   upload:
     desc: "Upload Disk Image to scratch datastore"
     silent: true
@@ -156,10 +193,56 @@ tasks:
       - task h2 -- Uploading images/{{.IMAGE}}.vmdk to /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk.
       - ssh {{.URI}} mkdir -p /vmfs/volumes/$scratchDatastoreUUID/.kubesprout
       - scp images/{{.IMAGE}}.vmdk {{.URI}}:/vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
+
+  deploy:
+    desc: "Deploys uploaded VM image to ESXi. Takes parameters, prototype - `task esxi65:deploy -- <ImageName> `"
+    silent: true
+    interactive: true
+    deps: [
+      ck_configured,
+      ck_sshconnect,
+      ck_sshauthenticate,
+      ck_datastore,
+      ck_network
+    ]
+    vars:
+      IMAGE: '{{(split " " .CLI_ARGS)._0}}'
+      NUMCPU: '{{(split " " .CLI_ARGS)._1}}'
+      MEMSIZE: '{{(split " " .CLI_ARGS)._2}}'
+      NETWORK: '{{(split " " .CLI_ARGS)._3}}'
+      GUESTOS: '{{(split " " .CLI_ARGS)._4}}'
+      URI: '$esxiUser@$esxiHost'
+    preconditions:
+      - sh: test ! -z "{{.NETWORK}}"
+        msg: "This task takes several parameters. Hint: `task esxi65:upload -- <ImageFile> <Number of CPUs> <Memory Size in MB> <Network Name> [Guest OS (default ubuntu-64]]`"
+      - sh: test -f "./images/{{.IMAGE}}.vmdk"
+        msg: "Looks like you specified an image file that doesn't exist, boss."
+      - sh: ssh {{.URI}} test -f /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
+        msg: "Specified image file does not exist on ESXi host. Check folder in selected datastore."
+      - sh: ssh {{.URI}} test ! -d /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}
+        msg: "Seems the directory containing assets related to this image already exists on the ESXi host."
+    cmds:
+      - task h1 -- Deploying uploaded image on ESXi host
+      - task h3 -- Requested Parameters
+      - echo "{{.BOLD}}VM Name{{.END}} - {{.IMAGE}}"
+      - echo "{{.BOLD}}CPU Cores{{.END}} - {{.NUMCPU}}"
+      - echo "{{.BOLD}}Memory Size (in MB){{.END}} - {{.MEMSIZE}}"
+      - echo "{{.BOLD}}Network/Prtgroup{{.END}} - {{.NETWORK}}"
+      - echo "{{.BOLD}}Guest OS{{.END}} - {{.GUESTOS}}"
+      - echo "{{.BOLD}}Datastore{{.END}} - $scratchDatastoreUUID"
+      - echo
+      - task h2 -- Creating directory hosting VM assets on ESXi host
+      - ssh {{.URI}} mkdir -p /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}
+      - task h2 -- Moving image file from staged location to VM assets directory
+      - ssh {{.URI}} mv /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmdk
       - task h2 -- Running vmkfstools to convert VMDK file.
-      - ssh {{.URI}} vmkfstools -i /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}-converted.vmdk
+      - ssh {{.URI}} vmkfstools -i /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmdk /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}-converted.vmdk
+      - task h2 -- Creating and deploying VMX configuration file
+      - $(git rev-parse --show-toplevel)/esxi65/vmxtemplate.sh --name {{.IMAGE}} --numvcpu {{.NUMCPU}} --memsize {{.MEMSIZE}} --network {{.NETWORK}} --datastore $scratchDatastoreUUID --stdout > /tmp/{{.IMAGE}}.vmx
+      - scp /tmp/{{.IMAGE}}.vmx {{.URI}}:/vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmx
+      - ssh {{.URI}} vim-cmd solo/registervm /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmx {{.IMAGE}}
       - task h2 -- Cleaning up
-      - ssh {{.URI}} rm -f /vmfs/volumes/$scratchDatastoreUUID/.kubesprout/{{.IMAGE}}.vmdk
+      - ssh {{.URI}} rm -f /vmfs/volumes/$scratchDatastoreUUID/{{.IMAGE}}/{{.IMAGE}}.vmdk
 
 
 

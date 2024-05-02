@@ -12,12 +12,11 @@
 #vmnetwork   # !!VMNETWORK!!
 #guestos     # !!GUESTOS!!
 
-TEMP=$(getopt -o ':' --long name:,numvcpu:,memsize:,network:,guestos: \
+TEMP=$(getopt -o ':' --long name:,numvcpu:,memsize:,network:,guestos:,out:,datastore:,stdout \
               -n 'vmxtemplate' -- "$@")
 
 if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
 
-echo $TEMP
 eval set -- "$TEMP"
 
 VMNAME=
@@ -29,6 +28,9 @@ while true; do
     --memsize ) MEMSIZE="$2"; shift 2 ;;
     --network ) VMNETWORK="$2"; shift 2 ;;
     --guestos ) GUESTOS="$2"; shift 2 ;;
+    --datastore ) DATASTORE="$2"; shift 2 ;;
+    --stdout ) STDOUTPUT="true"; shift 2 ;;
+    --out ) OUT="$2"; shift 2 ;;
     -- ) shift; break ;;
     * ) break ;;
   esac
@@ -38,9 +40,28 @@ if [[ -z "$GUESTOS" ]]; then
   GUESTOS="ubuntu-64"
 fi
 
-echo
-echo Name: $VMNAME
-echo VCPU: $NUMVCPU
-echo MemorySize: $MEMSIZE
-echo VMNetwork: $VMNETWORK
-echo GUESTOS: $GUESTOS
+OUTPUT=""
+VMDKFILE="$(echo /vmfs/volumes/$DATASTORE/$VMNAME/$VMNAME-converted.vmdk | sed -e 's/\//\\\//g')"
+SWAPFILE="$(echo /vmfs/volumes/$DATASTORE/$VMNAME/$VMNAME.vswp | sed -e 's/\//\\\//g')"
+
+# 00:50:56 - Range VMWare assigns for manual mac addresses
+MACADDRESS="00:50:56:$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo):$(tr -dc AF0-9 </dev/urandom | head -c 2; echo):$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo)"
+MACADDRESS=$(echo $MACADDRESS | tr '[:lower:]' '[:upper:]')
+
+while IFS= read -r line;
+do
+  #echo -n $line
+  newline=$(echo $line | sed -e 's/!!VMNAME!!/'${VMNAME}'/g')
+  newline=$(echo $newline | sed -e 's/!!NUMCPU!!/'${NUMVCPU}'/g')
+  newline=$(echo $newline | sed -e 's/!!MEMSIZE!!/'${MEMSIZE}'/g')
+  newline=$(echo $newline | sed -e 's/!!VMNETWORK!!/'${VMNETWORK}'/g')
+  newline=$(echo $newline | sed -e 's/!!GUESTOS!!/'${GUESTOS}'/g')
+  newline=$(echo $newline | sed -e 's/!!VMDKFILE!!/'${VMDKFILE}'/g')
+  newline=$(echo $newline | sed -e 's/!!SWAPFILE!!/'${SWAPFILE}'/g')
+  newline=$(echo $newline | sed -e 's/!!MACADDRESS!!/'${MACADDRESS}'/g')
+  OUTPUT+=$(echo "$line\t\t\t\t\t\t\t\t-> $newline\n")
+  #printf "\t\t\t\t\t\t\t\t-> $newline\n"
+  if [[ "$STDOUTPUT" == "true" ]]; then
+    printf "$newline\n"
+  fi
+done < "$(git rev-parse --show-toplevel)/esxi65/template.vmx"
