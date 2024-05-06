@@ -19,8 +19,6 @@ tasks:
     preconditions:
       - sh: command -v openssl
         msg: Openssl utility needs to be installed
-      - sh: command -v vagrant
-        msg: Vagrant utility needs to be installed
   ck_clean:
     internal: true
     silent: true
