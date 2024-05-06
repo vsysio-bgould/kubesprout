@@ -255,9 +255,4 @@ tasks:
         sqlite {{.SQLROOT}} "INSERT INTO hosts (module, fqdn, mac) VALUES (\"esxi65\", \"{{.IMAGE}}.vmnet.arpa\", \"{{.MAC}}\")"
 
         echo "Virtual Machine Registered:"
-        echo "{{.BOLD}} - {{.IMAGE}} - {{.END}}\nMAC: $MAC" | boxes -d stone
-
-
-
-
-
+        printf "{{.BOLD}} - {{.IMAGE}} - {{.END}}\nMAC: $MAC" | boxes -d stone

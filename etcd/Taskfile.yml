@@ -1,4 +1,9 @@
 version: '3'
+vars:
+  GITROOT:
+    sh: git rev-parse --show-toplevel
+  SQLROOT:
+    sh: echo $(git rev-parse --show-toplevel)/hosts.sqlite
 
 tasks:
 
@@ -157,3 +162,5 @@ tasks:
       - rm -rfv ca/ca/$clusterName$clusterVersion/etcd-*
       - echo "---------- Removing dangling VM images ----------"
       - rm -rfv images/etcd-*
+      - echo "---------- Removing reference to images in hosts database ----------"
+      - sqlite {{.SQLROOT}} "DELETE FROM hosts WHERE module=\"esxi65\""
