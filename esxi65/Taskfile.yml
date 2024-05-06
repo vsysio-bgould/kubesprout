@@ -252,7 +252,7 @@ tasks:
         MAC=$(cat /tmp/{{.IMAGE}}.vmx | grep 'ethernet0.address\s=' | sed 's/ethernet0.address\s=\s\"\(.*\)"/\1/g')
 
         # Post values to cheapo db
-        sqlite {{.SQLROOT}} "INSERT INTO hosts (module, fqdn, mac) VALUES (\"esxi65\", \"{{.IMAGE}}.vmnet.arpa\", \"{{.MAC}}\")"
+        sqlite {{.SQLROOT}} "INSERT INTO hosts (module, fqdn, mac) VALUES (\"esxi65\", \"{{.IMAGE}}.vmnet.arpa\", \"$MAC\")"
 
         echo "Virtual Machine Registered:"
         printf "{{.BOLD}} - {{.IMAGE}} - {{.END}}\nMAC: $MAC" | boxes -d stone

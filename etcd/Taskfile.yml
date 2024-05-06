@@ -133,20 +133,10 @@ tasks:
       - echo "IP address to a virtual machine based on its MAC address. I also have a local DNS domain, {{.BOLD}}.vmnet.arpa{{.END}},"
       - echo "that can resolves these hosts."
       - echo
-      - echo "To continue, ensure the hostnames in the below table can be resolved locally. Included are the MAC addresses"
+      - echo "To continue, ensure the hostnames in the above table can be resolved locally. Included are the MAC addresses"
       - echo "which enable static assignment of IP addresses to each virtual machine."
       - echo
-      - |
-        BUFFER="VM Name\tHostname\tNetwork\tMAC\n"
-        declare -a line
-        while read -r -aline
-        do
-          if [[ "${line[0]}" != "Hostname" ]]; then
-            BUFFER+="${line[0]}\t${line[0]}.vmnet.arpa\t${line[4]}\t${line[5]}\n"
-          fi
-        done < "./hosts/hosts.txt"
 
-        echo -e $BUFFER | column -t
 
   clean:
     desc: "Cleans up work produced by this repository (such as dangling Docker images)"
