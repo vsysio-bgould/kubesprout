@@ -248,9 +248,10 @@ tasks:
         # Extract MAC address
         MAC=$(cat /tmp/{{.IMAGE}}.vmx | grep 'ethernet0.address\s=' | sed 's/ethernet0.address\s=\s\"\(.*\)"/\1/g')
 
+        echo ${MAC}
         # Post values to cheapo db
-        echo task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} ubuntu-64 $MAC
-        task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} ubuntu-64 $MAC
+        echo task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} "${MAC}"
+        task hosts:addhost -- esxi65 {{.IMAGE}} {{.NUMCPU}} {{.MEMSIZE}} {{.NETWORK}} "${MAC}"
 
 
 

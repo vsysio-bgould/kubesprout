@@ -45,8 +45,8 @@ VMDKFILE="$(echo /vmfs/volumes/$DATASTORE/$VMNAME/$VMNAME-converted.vmdk | sed -
 SWAPFILE="$(echo /vmfs/volumes/$DATASTORE/$VMNAME/$VMNAME.vswp | sed -e 's/\//\\\//g')"
 
 # 00:50:56 - Range VMWare assigns for manual mac addresses
-MACADDRESS="00:50:56:$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo):$(tr -dc AF0-9 </dev/urandom | head -c 2; echo):$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo)"
-MACADDRESS=$(echo $MACADDRESS | tr '[:lower:]' '[:upper:]')
+MACADDRESS="00:50:56:$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo -n):$(tr -dc AF0-9 </dev/urandom | head -c 2; echo -n):$(tr -dc A-F0-9 </dev/urandom | head -c 2; echo -n)"
+MACADDRESS=$(echo -n $MACADDRESS | tr '[:lower:]' '[:upper:]')
 
 while IFS= read -r line;
 do

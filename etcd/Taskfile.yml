@@ -78,6 +78,7 @@ tasks:
     dotenv: ['ca/config.conf', 'esxi65/config.conf']
     silent: true
     interactive: true
+    shell: bash
     vars:
       NODE1_NAME:
         sh: echo etcd-$(tr -dc A-Za-z0-9 </dev/urandom | head -c 6 | tr '[:upper:]' '[:lower:]')
@@ -108,11 +109,6 @@ tasks:
       - echo
       - printf "{{.BOLD}}{{.NODE2_NAME}}.vmnet.arpa{{.END}}\nContainer Image - {{.NODE2_NAME}}\nContainer Size - $(docker inspect {{.NODE2_NAME}}:latest | jq .[].Size | numfmt --to=iec-i --format='%.3f')\nVM Image - images/{{.NODE2_NAME}}.vmdk\nVM Size - $(du -b images/{{.NODE2_NAME}}.vmdk | numfmt --to=iec-i)"  | boxes -d stone
       - echo
-      #- echo "{{.BLUE}}----------{{.STANDOUT}} NEXT STEPS {{.NO_STANDOUT}}----------{{.END}}"
-      #- echo "1. Import the above two etcd VM images into your hypervisor of choice. {{.BOLD}}DO NOT START THE VMs!{{.END}} Ensure they are on the same network."
-      #- echo "2. Configure your DHCP server to statically assign addresses to these VMs. On ESXi, I need to boot a VM and then terminate it before it fully boots in other to collect the auto-generated MAC."
-      #- echo "3. Configure your DNS server to resolve the hostnames assigned to the etcd VMs."
-      #- echo "4. Start the VMs =)"
       - task h1 -- Uploading and deploying built images to configured hypervisor
       - task h2 -- Deploying {{.NODE1_NAME}}
       - task esxi65:upload -- {{.NODE1_NAME}}
@@ -123,6 +119,29 @@ tasks:
       - echo
       - task h3 -- Registered Hosts in cheapo DB
       - task hosts:list
+      - task h1 -- Pausing for manual configuration
+      - task important -- Manual configuration is required to continue
+      - task h3 -- Why?
+      - echo "All virtual machines must be FQDN-addressable for auto-discovery and x509 authentication."
+      - echo "To accomplish this, you need to configure your infrastructure in such a way that hosts on your network"
+      - echo "can resolve a local DNS domain. For example, on my home network, I configure DHCP to issue a preconfigured"
+      - echo "IP address to a virtual machine based on its MAC address. I also have a local DNS domain, {{.BOLD}}.vmnet.arpa{{.END}},"
+      - echo "that can resolves these hosts."
+      - echo
+      - echo "To continue, ensure the hostnames in the below table can be resolved locally. Included are the MAC addresses"
+      - echo "which enable static assignment of IP addresses to each virtual machine."
+      - echo
+      - |
+        BUFFER="VM Name\tHostname\tNetwork\tMAC\n"
+        declare -a line
+        while read -r -aline
+        do
+          if [[ "${line[0]}" != "Hostname" ]]; then
+            BUFFER+="${line[0]}\t${line[0]}.vmnet.arpa\t${line[4]}\t${line[5]}\n"
+          fi
+        done < "./hosts/hosts.txt"
+
+        echo -e $BUFFER | column -t
 
   clean:
     desc: "Cleans up work produced by this repository (such as dangling Docker images)"
