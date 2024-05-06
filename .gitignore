@@ -17,4 +17,4 @@ esx65/config.conf
 images/*
 
 # Do not version poor mans hosts database (el cheapo db couldn't afford to buy the backup feature)
-hosts/hosts.txt
+hosts.sqlite
